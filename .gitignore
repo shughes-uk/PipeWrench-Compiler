@@ -1,5 +1,2 @@
-/build
-/coolmod
 /node_modules
-/textures
-/yarn-error.log
+/dist
