@@ -1,6 +1,6 @@
 {
   "name": "@shughesuk/tstl-pipewrench",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "license": "MIT",
   "main": "./dist/index.js",
   "dependencies": {
@@ -12,7 +12,7 @@
     "lint": "eslint --ext .ts"
   },
   "files": [
-    "index.js",
+    "dist/index.js",
     "lua/reimport_template.lua"
   ],
   "exports": "./dist/index.js",
