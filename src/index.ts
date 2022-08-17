@@ -4,12 +4,12 @@ import * as fs from 'fs';
 import path from "path";
 
 type Scope = 'client' | 'server' | 'shared' | 'none';
-const REIMPORT_TEMPLATE = fs.readFileSync(path.join(__dirname,'../lua/reimport_template.lua')).toString();
+const REIMPORT_TEMPLATE = fs.readFileSync(path.join(__dirname, '../lua/reimport_template.lua')).toString();
 
 const fixRequire = (scope: Scope, lua: string): string => {
   if (lua.length === 0) return '';
   const fix = (fromImport: string): string => {
-    let toImport = fromImport.replaceAll(".","/")
+    let toImport = fromImport.replaceAll(".", "/")
     // Remove cross-references for client/server/shared.
     if (toImport.startsWith('shared/')) {
       toImport = toImport.substring('shared/'.length);
@@ -17,7 +17,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'server') {
         console.warn(
           `Cannot reference code from src/client from src/server. ` +
-            '(Code will fail when ran)'
+          '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('client/'.length);
@@ -25,7 +25,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'client') {
         console.warn(
           `Cannot reference code from src/server from src/client. ` +
-            '(Code will fail when ran)'
+          '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('server/'.length);
@@ -47,7 +47,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       const toImport = fix(fromImport);
       // Kahlua only works with '/', nor '.' in 'require(..)'.
       const from = 'require("' + fromImport + '")';
-      const to = "require('" + toImport.replaceAll( '.', '/') + "')";
+      const to = "require('" + toImport.replaceAll('.', '/') + "')";
       lua = lua.replace(from, to);
     }
   } while (index !== -1);
@@ -87,38 +87,20 @@ const applyReimportScript = (lua: string): string => {
   return `${lines.join('\n')}\n${reimports}\n\n${returnLine}\n`;
 };
 
-const handle_file = (file:tstl.EmitFile) => {
-  if (file.code.length ===0) return;
-  let scope :Scope = 'none'
+const handle_file = (file: tstl.EmitFile) => {
+  if (file.code.length === 0) return;
+  let scope: Scope = 'none'
   if (file.outputPath.startsWith('media/lua/client')) scope = 'client';
   else if (file.outputPath.startsWith('media/lua/server')) scope = 'server';
   else if (file.outputPath.startsWith('media/lua/shared')) scope = 'shared';
-  file.code = applyReimportScript(fixRequire(scope,file.code))
+  file.code = applyReimportScript(fixRequire(scope, file.code))
 }
 const plugin: tstl.Plugin = {
-  // beforeTransform(program, options, emitHost) {
-  //   console.log(program)
-  // },
-  // afterPrint(
-  //   program: ts.Program,
-  //   options: tstl.CompilerOptions,
-  //   emitHost: tstl.EmitHost,
-  //   result: tstl.ProcessedFile[],
-  // ) {
-  //   for (const file of result) {
-  //     console.log(file.code)
-  //     file.code = "-- Comment added by afterPrint plugin\n" + file.code;
-  //   }
-  // },
   beforeEmit(program: ts.Program, options: tstl.CompilerOptions, emitHost: tstl.EmitHost, result: tstl.EmitFile[]) {
     void program;
     void options;
     void emitHost;
-
     result.map(handle_file)
-    // for (const file of result) {
-    //   file.code = "-- Comment added by beforeEmit plugin\n" + file.code;
-    // }
   },
 };
 
