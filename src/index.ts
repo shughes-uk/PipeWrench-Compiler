@@ -63,7 +63,7 @@ const applyReimportScript = (lua: string): string => {
   for (const line of lines) {
     if (
       line.indexOf('local ') === 0 &&
-      line.indexOf('____PipeWrench.') !== -1
+      line.indexOf('____pipewrench.') !== -1
     ) {
       assignments.push(line.replace('local ', ''));
     }
@@ -90,9 +90,20 @@ const applyReimportScript = (lua: string): string => {
 const handle_file = (file: tstl.EmitFile) => {
   if (file.code.length === 0) return;
   let scope: Scope = 'none'
-  if (file.outputPath.startsWith('media/lua/client')) scope = 'client';
-  else if (file.outputPath.startsWith('media/lua/server')) scope = 'server';
-  else if (file.outputPath.startsWith('media/lua/shared')) scope = 'shared';
+  const fp = path.parse(file.outputPath)
+  if (fp.dir.indexOf('media/lua/client')) scope = 'client';
+  else if (fp.dir.indexOf('media/lua/server')) scope = 'server';
+  else if (fp.dir.indexOf('media/lua/shared')) scope = 'shared';
+  const split = fp.dir.split("lua_modules")
+  const isLuaModule = split.length > 1
+  if (fp.name === "lualib_bundle") {
+    file.outputPath = path.join(fp.dir, "shared/lualib_bundle.lua")
+  }
+  if (isLuaModule) {
+    file.outputPath = path.join(split[0], "shared", ...split.slice(1), fp.base)
+  }
+  console.log("OUT", fp.name, file.outputPath, scope)
+
   file.code = applyReimportScript(fixRequire(scope, file.code))
 }
 const plugin: tstl.Plugin = {
