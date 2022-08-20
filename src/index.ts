@@ -102,7 +102,6 @@ const handle_file = (file: tstl.EmitFile) => {
   if (isLuaModule) {
     file.outputPath = path.join(split[0], "shared", ...split.slice(1), fp.base)
   }
-  console.log("OUT", fp.name, file.outputPath, scope)
 
   file.code = applyReimportScript(fixRequire(scope, file.code))
 }
