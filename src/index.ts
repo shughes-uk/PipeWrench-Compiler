@@ -22,7 +22,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'server') {
         console.warn(
           `Cannot reference code from src/client from src/server. ` +
-            '(Code will fail when ran)'
+          '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('client/'.length);
@@ -30,7 +30,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'client') {
         console.warn(
           `Cannot reference code from src/server from src/client. ` +
-            '(Code will fail when ran)'
+          '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('server/'.length);
@@ -105,7 +105,7 @@ const handleFile = (file: tstl.EmitFile) => {
     file.outputPath = path.join(fp.dir, 'shared/lualib_bundle.lua');
   }
   if (isLuaModule) {
-    file.outputPath = path.join(split[0], 'shared', ...split.slice(1), fp.base);
+    file.outputPath = path.join(split[0], 'shared', "lua_modules", ...split.slice(1), fp.base);
   }
   file.code = applyReimportScript(fixRequire(scope, file.code));
 };
@@ -176,6 +176,7 @@ class PipeWrenchPlugin implements tstl.Plugin {
         if (outDir) {
           file.outputPath = path.join(
             modSubDir,
+            "media", "lua",
             path.relative(outDir, file.outputPath)
           );
           handleFile(file);
