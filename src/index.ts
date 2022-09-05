@@ -1,15 +1,20 @@
-import * as ts from "typescript";
-import * as tstl from "typescript-to-lua";
-import * as fs from 'fs';
-import path from "path";
-
+import * as ts from 'typescript';
+import * as tstl from 'typescript-to-lua';
+import * as fs from 'fs-extra';
+import path from 'path';
+import { existsSync, writeFileSync } from 'fs';
+import Ajv from 'ajv';
+import { PipeWrenchConfigSchema, PipeWrenchConfig } from './config';
+const ajv = new Ajv();
 type Scope = 'client' | 'server' | 'shared' | 'none';
-const REIMPORT_TEMPLATE = fs.readFileSync(path.join(__dirname, '../lua/reimport_template.lua')).toString();
+const REIMPORT_TEMPLATE = fs
+  .readFileSync(path.join(__dirname, '../lua/reimport_template.lua'))
+  .toString();
 
 const fixRequire = (scope: Scope, lua: string): string => {
   if (lua.length === 0) return '';
   const fix = (fromImport: string): string => {
-    let toImport = fromImport.replaceAll(".", "/")
+    let toImport = fromImport.replaceAll('.', '/');
     // Remove cross-references for client/server/shared.
     if (toImport.startsWith('shared/')) {
       toImport = toImport.substring('shared/'.length);
@@ -17,7 +22,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'server') {
         console.warn(
           `Cannot reference code from src/client from src/server. ` +
-          '(Code will fail when ran)'
+            '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('client/'.length);
@@ -25,7 +30,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'client') {
         console.warn(
           `Cannot reference code from src/server from src/client. ` +
-          '(Code will fail when ran)'
+            '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('server/'.length);
@@ -87,32 +92,98 @@ const applyReimportScript = (lua: string): string => {
   return `${lines.join('\n')}\n${reimports}\n\n${returnLine}\n`;
 };
 
-const handle_file = (file: tstl.EmitFile) => {
+const handleFile = (file: tstl.EmitFile) => {
   if (file.code.length === 0) return;
-  let scope: Scope = 'none'
-  const fp = path.parse(file.outputPath)
-  if (fp.dir.indexOf('media/lua/client')) scope = 'client';
-  else if (fp.dir.indexOf('media/lua/server')) scope = 'server';
-  else if (fp.dir.indexOf('media/lua/shared')) scope = 'shared';
-  const split = fp.dir.split("lua_modules")
-  const isLuaModule = split.length > 1
-  if (fp.name === "lualib_bundle") {
-    file.outputPath = path.join(fp.dir, "shared/lualib_bundle.lua")
+  let scope: Scope = 'none';
+  const fp = path.parse(file.outputPath);
+  if (fp.dir.indexOf('client')) scope = 'client';
+  else if (fp.dir.indexOf('server')) scope = 'server';
+  else if (fp.dir.indexOf('shared')) scope = 'shared';
+  const split = fp.dir.split('lua_modules');
+  const isLuaModule = split.length > 1;
+  if (fp.name === 'lualib_bundle') {
+    file.outputPath = path.join(fp.dir, 'shared/lualib_bundle.lua');
   }
   if (isLuaModule) {
-    file.outputPath = path.join(split[0], "shared", ...split.slice(1), fp.base)
+    file.outputPath = path.join(split[0], 'shared', ...split.slice(1), fp.base);
   }
-  console.log("OUT", fp.name, file.outputPath, scope)
-
-  file.code = applyReimportScript(fixRequire(scope, file.code))
-}
-const plugin: tstl.Plugin = {
-  beforeEmit(program: ts.Program, options: tstl.CompilerOptions, emitHost: tstl.EmitHost, result: tstl.EmitFile[]) {
-    void program;
-    void options;
-    void emitHost;
-    result.map(handle_file)
-  },
+  file.code = applyReimportScript(fixRequire(scope, file.code));
+};
+const copyMake = (src: string, dest: string) => {
+  fs.ensureDirSync(dest);
+  fs.copySync(src, dest, { recursive: true });
 };
 
+class PipeWrenchPlugin implements tstl.Plugin {
+  config: PipeWrenchConfig;
+  constructor() {
+    const validateConfig = ajv.compile(PipeWrenchConfigSchema);
+
+    const rawdata = fs.readFileSync('./pipewrench.json');
+    const rawConfig = JSON.parse(rawdata.toString());
+    if (validateConfig(rawConfig)) {
+      this.config = rawConfig;
+      console.log('Configuration:', this.config);
+    } else {
+      console.error(validateConfig.errors);
+      throw 'Error parsing pipewrench.json';
+    }
+  }
+  public beforeTransform(
+    program: ts.Program,
+    options: tstl.CompilerOptions,
+    emitHost: tstl.EmitHost
+  ) {
+    if (!options.outDir) {
+      throw 'Must specify outDir in tsconfig.json';
+    }
+    return;
+  }
+
+  beforeEmit(
+    program: ts.Program,
+    options: tstl.CompilerOptions,
+    emitHost: tstl.EmitHost,
+    result: tstl.EmitFile[]
+  ) {
+    if (options.outDir) {
+      const modSubDir = path.join(options.outDir, this.config.modInfo.id);
+      if (existsSync(this.config.modelsDir))
+        copyMake(
+          this.config.modelsDir,
+          path.join(modSubDir, 'media', 'models')
+        );
+      if (existsSync(this.config.texturesDir))
+        copyMake(
+          this.config.texturesDir,
+          path.join(modSubDir, 'media', 'textures')
+        );
+      if (existsSync(this.config.soundDir))
+        copyMake(this.config.soundDir, path.join(modSubDir, 'media', 'sound'));
+      if (existsSync(this.config.scriptsDir))
+        copyMake(
+          this.config.scriptsDir,
+          path.join(modSubDir, 'media', 'scripts')
+        );
+      const modInfoArray = Object.entries(this.config.modInfo).map(
+        ([key, value]) => {
+          return `${key}=${value}`;
+        }
+      );
+      writeFileSync(path.join(modSubDir, 'mod.info'), modInfoArray.join('\n'));
+      result.map((file) => {
+        const { outDir } = options;
+        if (outDir) {
+          file.outputPath = path.join(
+            modSubDir,
+            path.relative(outDir, file.outputPath)
+          );
+          handleFile(file);
+        }
+      });
+    }
+  }
+}
+
+const plugin = new PipeWrenchPlugin();
 export default plugin;
