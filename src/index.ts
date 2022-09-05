@@ -22,7 +22,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'server') {
         console.warn(
           `Cannot reference code from src/client from src/server. ` +
-          '(Code will fail when ran)'
+            '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('client/'.length);
@@ -30,7 +30,7 @@ const fixRequire = (scope: Scope, lua: string): string => {
       if (scope === 'client') {
         console.warn(
           `Cannot reference code from src/server from src/client. ` +
-          '(Code will fail when ran)'
+            '(Code will fail when ran)'
         );
       }
       toImport = toImport.substring('server/'.length);
