@@ -3,11 +3,11 @@ module.exports = {
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
     'plugin:@typescript-eslint/eslint-recommended',
-
     'plugin:import/recommended',
     'plugin:import/typescript',
     'prettier'
   ],
+  ignorePatterns: ['dist'],
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint', 'prettier'],
   root: true,
